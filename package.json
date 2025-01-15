@@ -1,0 +1,15 @@
+{
+  "name": "credit-accounts",
+  "version": "0.0.1",
+  "description": "Gearbox Credit Accounts",
+  "files": [
+    "src"
+  ],
+  "keywords": [
+    "gearbox"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@safe-global/safe-contracts": "^1.4.1"
+  }
+}

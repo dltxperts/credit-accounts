@@ -1,0 +1,7 @@
+@1inch/=lib/@gearbox-protocol/core-v3/lib/@1inch/
+@gearbox-protocol/=lib/@gearbox-protocol/
+@openzeppelin/=lib/@gearbox-protocol/core-v3/lib/@openzeppelin/
+ds-test/=lib/@gearbox-protocol/core-v3/lib/@openzeppelin/lib/forge-std/lib/ds-test/src/
+erc4626-tests/=lib/@gearbox-protocol/core-v3/lib/@openzeppelin/lib/erc4626-tests/
+forge-std/=lib/forge-std/src/
+@safe-global/=node_modules/@safe-global/
