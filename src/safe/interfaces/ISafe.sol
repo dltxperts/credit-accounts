@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.0;
 
-interface ISafe {
+library Enum {
     enum Operation {
         Call,
         DelegateCall
     }
+}
 
+interface ISafe {
     function setup(
         address[] calldata _owners,
         uint256 _threshold,
@@ -16,7 +18,8 @@ interface ISafe {
         address paymentToken,
         uint256 payment,
         address payable paymentReceiver
-    ) external;
+    )
+        external;
 
     /**
      * @dev Allows a Module to execute a Safe transaction without any further confirmations.
@@ -25,7 +28,12 @@ interface ISafe {
      * @param data Data payload of module transaction.
      * @param operation Operation type of module transaction.
      */
-    function execTransactionFromModule(address to, uint256 value, bytes memory data, Operation operation)
+    function execTransactionFromModule(
+        address to,
+        uint256 value,
+        bytes memory data,
+        Enum.Operation operation
+    )
         external
         returns (bool success);
 
@@ -39,7 +47,12 @@ interface ISafe {
      * @return success Boolean flag indicating if the call succeeded.
      * @return returnData Data returned by the call.
      */
-    function execTransactionFromModuleReturnData(address to, uint256 value, bytes memory data, Operation operation)
+    function execTransactionFromModuleReturnData(
+        address to,
+        uint256 value,
+        bytes memory data,
+        Enum.Operation operation
+    )
         external
         returns (bool success, bytes memory returnData);
 
@@ -51,7 +64,13 @@ interface ISafe {
      * @param signatures Signature data that should be verified. Can be ECDSA signature, contract
      * signature (EIP-1271) or approved hash.
      */
-    function checkSignatures(bytes32 dataHash, bytes memory data, bytes memory signatures) external view;
+    function checkSignatures(
+        bytes32 dataHash,
+        bytes memory data,
+        bytes memory signatures
+    )
+        external
+        view;
 
     function signedMessages(bytes32) external view returns (uint256);
 
@@ -72,7 +91,10 @@ interface ISafe {
      * @return array Array of modules.
      * @return next Start of the next page.
      */
-    function getModulesPaginated(address start, uint256 pageSize)
+    function getModulesPaginated(
+        address start,
+        uint256 pageSize
+    )
         external
         view
         returns (address[] memory array, address next);
@@ -83,6 +105,10 @@ interface ISafe {
      * @param module Module to be enabled.
      */
     function enableModule(address module) external;
+
+    function setGuard(address guard) external;
+
+    function getGuard() external view returns (address);
 
     function setFallbackHandler(address handler) external;
 

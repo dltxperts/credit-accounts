@@ -1,0 +1,9 @@
+SafeCreditAccount::safeTransferFrom
+├── when the caller is not a credit manager
+│   └── it should revert the transaction
+└── when the caller is a credit manager
+    └── it should successfully transfer tokens
+
+
+SafeCreditAccount::execute
+└── it should revert
