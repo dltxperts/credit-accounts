@@ -1,5 +1,7 @@
 pragma solidity ^0.8.24;
 
+import { console } from "forge-std/console.sol";
+
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
@@ -51,7 +53,9 @@ contract SafeCreditAccountFallback is ICreditAccountV3, HandlerContext {
             if success {
                 switch returnDataSize
                 case 0 { success := gt(extcodesize(token), 0) }
-                default { success := and(gt(returnDataSize, 31), eq(mload(0), 1)) }
+                default {
+                    success := and(gt(returnDataSize, 31), eq(mload(add(returnData, 0x20)), 1))
+                }
             }
         }
 

@@ -23,8 +23,8 @@ contract BaseSafeTest is BaseTest {
                             VARIABLES
     //////////////////////////////////////////////////////////////*/
 
-    address[] internal _owners;
-    address internal _fabricOwner;
+    address[] public accountOwners;
+    address public fabricOwner;
 
     /*//////////////////////////////////////////////////////////////
                             SETUP
@@ -37,11 +37,11 @@ contract BaseSafeTest is BaseTest {
         safeSingleton = new Safe();
         multiSendCallOnly = new MultiSendCallOnly();
 
-        _owners = new address[](3);
-        _owners[0] = makeAddr("owner_0");
-        _owners[1] = makeAddr("owner_1");
-        _owners[2] = makeAddr("owner_2");
+        accountOwners = new address[](3);
+        accountOwners[0] = makeAddr("owner_0");
+        accountOwners[1] = makeAddr("owner_1");
+        accountOwners[2] = makeAddr("owner_2");
 
-        _fabricOwner = makeAddr("fabric_owner");
+        fabricOwner = makeAddr("fabric_owner");
     }
 }
