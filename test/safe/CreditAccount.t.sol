@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { BaseSafeTest } from "./BaseSafe.t.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
-
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { SafeCreditAccountFactory } from "../../src/safe/SafeCreditAccountFactory.sol";
 import { SafeCreditAccount } from "../../src/safe/SafeCreditAccount.sol";
 import {
@@ -100,7 +100,7 @@ contract SafeCreditAccountTest is BaseSafeTest {
         address safeCreditAccount = _makeSafe_1_1_Instance();
 
         address target = makeAddr("target");
-        bytes memory dummyCall = "dummyCall";
+        bytes memory dummyCall = abi.encodeCall(IERC20.transfer, (target, 100));
         console2.log("dummyCall", dummyCall.length, target);
 
         bytes memory op1 = abi.encodePacked(
@@ -118,9 +118,7 @@ contract SafeCreditAccountTest is BaseSafeTest {
         assertEq(calls[0].value, 1);
         assertEq(calls[1].to, target);
         assertEq(calls[1].value, 2);
-
-        // TODO: fix this tests
-        // assertEq(calls[0].data, dummyCall);
-        // assertEq(calls[1].data, dummyCall);
+        assertEq(calls[0].data, dummyCall);
+        assertEq(calls[1].data, dummyCall);
     }
 }

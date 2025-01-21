@@ -50,21 +50,24 @@ contract SafeCreditAccountGuard is ITransactionGuard {
             || interfaceId == type(IERC165).interfaceId;
     }
 
-    /// @dev Each call is encoded as a packed bytes of
+    /// @dev Modified from Safe MultiSend.sol
+    /// Each call is encoded as a packed bytes of
     /// operation has to be uint8(0) in this version (=> 1 byte),
     /// to as a address (=> 20 bytes),
     /// value as a uint256 (=> 32 bytes),
     /// data length as a uint256 (=> 32 bytes),
     /// data as bytes
-    function _decodeMultisend(bytes memory transactions) internal pure returns (Call[] memory) {
-        Call[] memory calls; // (?) how much memory to allocate?
-
+    function _decodeMultisend(bytes memory transactions)
+        internal
+        pure
+        returns (Call[] memory calls)
+    {
         assembly ("memory-safe") {
             let length := mload(transactions)
             let i := 0x20
-            let p := mload(0x40)
+            let p := mload(0x40) // free memory pointer
             let callsCounter := 0
-            let callsPointer := add(calls, 0x20)
+            // let callsPointer := add(calls, 0x20)
             for {
                 // Pre block is not used in "while mode"
             } lt(i, length) {
@@ -83,34 +86,44 @@ contract SafeCreditAccountGuard is ITransactionGuard {
                 let value := mload(add(transactions, add(i, 0x15)))
                 // We offset the load address by 53 byte (operation byte + 20 address bytes + 32
                 // value bytes)
-                let dataLength := mload(add(transactions, add(i, 0x35)))
+                let dataLengthOffset := add(transactions, add(i, 0x35))
+                let dataLength := mload(dataLengthOffset)
                 // We offset the load address by 85 byte (operation byte + 20 address bytes + 32
                 // value bytes + 32 data length bytes)
-                let data := add(transactions, add(i, 0x55))
+                // let data := add(transactions, add(i, 0x55))
 
-                mstore(callsPointer, p)
-                // store the call in memory
+                // store the Call in memory
                 mstore(p, to) // Call.to
                 mstore(add(p, 0x20), value) // Call.value
-                mstore(add(p, 0x40), dataLength) // Call.data
-                mcopy(data, add(p, 0x60), dataLength)
-                p := add(p, add(0x60, dataLength))
+                mstore(add(p, 0x40), dataLengthOffset) // Call.data
+
+                p := add(p, 0x60)
 
                 // increment the calls counter
                 callsCounter := add(callsCounter, 1)
-                callsPointer := add(callsPointer, 0x20)
+                // callsPointer := add(callsPointer, 0x20)
 
                 // Next entry starts at 85 byte + data length
                 i := add(i, add(0x55, dataLength))
             }
+            // Store the number of calls
+            mstore(p, callsCounter)
+            calls := p
 
-            // update the free memory pointer
-            mstore(0x40, p)
-            // store the calls counter
-            mstore(calls, callsCounter)
+            // Calculate the starting pointer for the calls array
+            let callsPointer := sub(p, mul(0x60, callsCounter))
+            let callsArrayOffset := add(calls, 0x20)
+
+            // Populate the calls array with pointers to each Call struct
+            for { let j := 0 } lt(j, callsCounter) { j := add(j, 1) } {
+                let callOffset := mul(j, 0x60)
+                mstore(add(callsArrayOffset, mul(j, 0x20)), add(callsPointer, callOffset))
+            }
+
+            // Update the free memory pointer
+            let newFreeMemoryPointer := add(p, add(mul(0x20, callsCounter), 0x20))
+            mstore(0x40, newFreeMemoryPointer)
         }
-
-        return calls;
     }
 
     function decodeMultisend(bytes memory transactions)
