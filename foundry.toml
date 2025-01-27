@@ -15,3 +15,7 @@ multiline_func_header = "all"
 quote_style = "double"
 tab_width = 4
 wrap_comments = true
+
+[rpc_endpoints]
+arbitrum = "https://arbitrum.rpc.subquery.network/public"
+anvil_arbitrum = "http://localhost:8545"

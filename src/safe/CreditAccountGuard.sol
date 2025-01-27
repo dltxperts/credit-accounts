@@ -1,0 +1,128 @@
+pragma solidity ^0.8.24;
+
+import { Enum, ISafe } from "./interfaces/ISafe.sol";
+import { ITransactionGuard, IERC165 } from "./interfaces/ITransactionGuard.sol";
+import { Call } from "../DataTypes.sol";
+import { MultiSendLib } from "./libraries/MultiSendLib.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import {
+    DelegateCallNotAllowedException,
+    AccountModificationNotAllowedException
+} from "../interfaces/ICreditAccountExceptions.sol";
+
+contract SafeCreditAccountGuard is ITransactionGuard {
+    struct Approval {
+        address token;
+        address spender;
+    }
+
+    struct TxContext {
+        Approval[] approvals;
+    }
+
+    address public immutable MULTISEND_CALL_ONLY;
+
+    bytes4 public constant APPROVE_SELECTOR = bytes4(keccak256("approve(address,uint256)"));
+
+    TxContext internal _txContext;
+
+    constructor(address multisendCallOnly) {
+        MULTISEND_CALL_ONLY = multisendCallOnly;
+    }
+
+    // Non-reentrant
+    function checkTransaction(
+        address to,
+        uint256 value,
+        bytes memory data,
+        Enum.Operation operation,
+        uint256 safeTxGas,
+        uint256 baseGas,
+        uint256 gasPrice,
+        address gasToken,
+        address payable refundReceiver,
+        bytes memory signatures,
+        address msgSender
+    )
+        external
+        override
+    {
+        ISafe safe = ISafe(msg.sender);
+
+        // Allow only delegate calls to the MultiSendCallOnly contract
+        if (operation == Enum.Operation.DelegateCall) {
+            if (to != MULTISEND_CALL_ONLY) {
+                revert DelegateCallNotAllowedException();
+            }
+
+            // scan approvals
+            Call[] memory calls = MultiSendLib.decodeMultisend(data);
+            for (uint256 i = 0; i < calls.length; i++) {
+                _handleCall(calls[i]);
+            }
+        } else {
+            _handleCall(Call({ to: to, value: value, data: data }));
+        }
+
+        // preCollateralCheck
+    }
+
+    function checkAfterExecution(bytes32 txHash, bool success) external override {
+        // reset approvals
+        for (uint256 i = 0; i < _txContext.approvals.length; i++) {
+            Approval memory approval = _txContext.approvals[i];
+            IERC20(approval.token).approve(approval.spender, 0);
+        }
+
+        // release approvals
+        _clearTxContext();
+
+        // postCollateralCheck
+    }
+
+    function _clearTxContext() internal {
+        delete _txContext;
+    }
+
+    function _handleCall(Call memory call) internal {
+        bytes memory callData = call.data;
+        if (callData.length > 4) {
+            bytes4 selector = bytes4(callData);
+
+            // handle approve
+            if (selector == APPROVE_SELECTOR) {
+                address spender;
+                assembly ("memory-safe") {
+                    spender := mload(add(callData, 36))
+                }
+
+                _txContext.approvals.push(Approval({ token: call.to, spender: spender }));
+            }
+
+            // handle setGuard, enableModule, disableModule, setModuleGuard,setFallbackHandler
+            if (
+                selector == ISafe.setGuard.selector || selector == ISafe.enableModule.selector
+                    || selector == ISafe.disableModule.selector
+                    || selector == ISafe.setModuleGuard.selector
+                    || selector == ISafe.setFallbackHandler.selector
+            ) {
+                revert AccountModificationNotAllowedException();
+            }
+        }
+    }
+
+    /// @dev IERC165
+    function supportsInterface(bytes4 interfaceId) external view returns (bool) {
+        return interfaceId == type(ITransactionGuard).interfaceId
+            || interfaceId == type(IERC165).interfaceId;
+    }
+
+    function decodeMultisend(bytes memory transactions)
+        external
+        pure
+        returns (Call[] memory calls)
+    {
+        return MultiSendLib.decodeMultisend(transactions);
+    }
+}

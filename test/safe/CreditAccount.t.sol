@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import { BaseSafeTest } from "./BaseSafe.t.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import { SafeCreditAccountFactory } from "../../src/safe/SafeCreditAccountFactory.sol";
-import { SafeCreditAccount } from "../../src/safe/SafeCreditAccount.sol";
+import { SafeCreditAccountFactory } from "../../src/safe/CreditAccountFactory.sol";
+import { SafeCreditAccount } from "../../src/safe/CreditAccount.sol";
 import {
     CallerNotCreditManagerException,
     NotImplementedException
@@ -23,14 +23,11 @@ contract SafeCreditAccountTest is BaseSafeTest {
                             CONTRACTS
     //////////////////////////////////////////////////////////////*/
 
-    SafeCreditAccountFactory public safeCreditAccountFactory;
     MockERC20 public mockERC20;
 
     /*//////////////////////////////////////////////////////////////
                             VARIABLES
     //////////////////////////////////////////////////////////////*/
-
-    address public _gearboxCreditManager;
 
     /*//////////////////////////////////////////////////////////////
                             SETUP
@@ -40,23 +37,6 @@ contract SafeCreditAccountTest is BaseSafeTest {
         super.setUp();
 
         mockERC20 = new MockERC20();
-
-        _gearboxCreditManager = makeAddr("gearbox_credit_manager");
-
-        safeCreditAccountFactory = new SafeCreditAccountFactory(
-            fabricOwner,
-            address(safeProxyFactory),
-            address(safeSingleton),
-            address(multiSendCallOnly),
-            _gearboxCreditManager
-        );
-    }
-
-    function _makeSafe_1_1_Instance() internal returns (address) {
-        address[] memory owners = new address[](1);
-        owners[0] = accountOwners[0];
-
-        return safeCreditAccountFactory.deployCreditAccount(owners, 1);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -65,7 +45,7 @@ contract SafeCreditAccountTest is BaseSafeTest {
 
     function test_SafeTransferFromWhenTheCallerIsNotACreditManager() external {
         // it should revert the transaction
-        address safeCreditAccount = _makeSafe_1_1_Instance();
+        address safeCreditAccount = address(_makeSafe_1_1_Instance(alice.addr));
 
         vm.expectRevert(CallerNotCreditManagerException.selector);
 
@@ -76,12 +56,12 @@ contract SafeCreditAccountTest is BaseSafeTest {
 
     function test_SafeTransferFromWhenTheCallerIsACreditManager() external {
         // it should successfully transfer tokens
-        address safeCreditAccount = _makeSafe_1_1_Instance();
+        address safeCreditAccount = address(_makeSafe_1_1_Instance(alice.addr));
         address to = makeAddr("to");
 
         mockERC20.mint(safeCreditAccount, 100);
 
-        vm.prank(_gearboxCreditManager);
+        vm.prank(gearboxCreditManager);
         ICreditAccountV3(safeCreditAccount).safeTransfer(address(mockERC20), to, 100);
 
         assertEq(mockERC20.balanceOf(to), 100);
@@ -90,14 +70,14 @@ contract SafeCreditAccountTest is BaseSafeTest {
 
     function test_ExecuteShouldRevert() external {
         // it should revert
-        address safeCreditAccount = _makeSafe_1_1_Instance();
+        address safeCreditAccount = address(_makeSafe_1_1_Instance(alice.addr));
 
         vm.expectRevert(NotImplementedException.selector);
         ICreditAccountV3(safeCreditAccount).execute(makeAddr("target"), "data");
     }
 
     function test_DecodeMultisend() external {
-        address safeCreditAccount = _makeSafe_1_1_Instance();
+        address safeCreditAccount = address(_makeSafe_1_1_Instance(alice.addr));
 
         address target = makeAddr("target");
         bytes memory dummyCall = abi.encodeCall(IERC20.transfer, (target, 100));

@@ -4,6 +4,5 @@ SafeCreditAccount::safeTransferFrom
 └── when the caller is a credit manager
     └── it should successfully transfer tokens
 
-
 SafeCreditAccount::execute
 └── it should revert

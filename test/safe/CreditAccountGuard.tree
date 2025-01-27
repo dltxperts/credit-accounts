@@ -1,0 +1,19 @@
+SafeCreditAccountGuard::checkTransaction
+├── when delegate call is not to MultiSendCallOnly
+│   └── it should revert with error
+├── when approving
+│   ├── given single approval
+│   │   └── it should record approval
+│   └── given multiple approvals
+│       └── it should record all
+└── when prohibited operations
+    ├── given setGuard is called
+    │   └── it should revert with error
+    ├── given enableModule is called
+    │   └── it should revert with error
+    ├── given disableModule is called
+    │   └── it should revert with error
+    ├── given setModuleGuard is called
+    │   └── it should revert with error
+    └── given setFallbackHandler is called
+        └── it should revert with error

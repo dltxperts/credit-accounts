@@ -21,6 +21,21 @@ interface ISafe {
     )
         external;
 
+    function execTransaction(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        Enum.Operation operation,
+        uint256 safeTxGas,
+        uint256 baseGas,
+        uint256 gasPrice,
+        address gasToken,
+        address payable refundReceiver,
+        bytes memory signatures
+    )
+        external
+        returns (bool success);
+
     /**
      * @dev Allows a Module to execute a Safe transaction without any further confirmations.
      * @param to Destination address of module transaction.
@@ -57,7 +72,8 @@ interface ISafe {
         returns (bool success, bytes memory returnData);
 
     /**
-     * @dev Checks whether the signature provided is valid for the provided data, hash. Will revert
+     * @dev Checks whether the signature provided is valid for the provided data, hash. Will
+     * revert
      * otherwise.
      * @param dataHash Hash of the data (could be either a message hash or transaction hash)
      * @param data That should be signed (this is passed to an external validator contract)
@@ -106,6 +122,10 @@ interface ISafe {
      */
     function enableModule(address module) external;
 
+    function disableModule(address module) external;
+
+    function setModuleGuard(address moduleGuard) external;
+
     function setGuard(address guard) external;
 
     function getGuard() external view returns (address);
@@ -113,4 +133,20 @@ interface ISafe {
     function setFallbackHandler(address handler) external;
 
     function simulateAndRevert(address targetContract, bytes memory calldataPayload) external;
+
+    function getTransactionHash(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        Enum.Operation operation,
+        uint256 safeTxGas,
+        uint256 baseGas,
+        uint256 gasPrice,
+        address gasToken,
+        address refundReceiver,
+        uint256 _nonce
+    )
+        external
+        view
+        returns (bytes32);
 }

@@ -4,7 +4,7 @@ import { BaseTest } from "../Base.t.sol";
 import { console2 } from "forge-std/console2.sol";
 
 import { ISafe } from "../../src/safe/interfaces/ISafe.sol";
-import { SafeCreditAccountFactory } from "../../src/safe/SafeCreditAccountFactory.sol";
+import { SafeCreditAccountFactory } from "../../src/safe/CreditAccountFactory.sol";
 import { SafeProxyFactory } from
     "@safe-global/safe-contracts/contracts/proxies/SafeProxyFactory.sol";
 import { MultiSendCallOnly } from

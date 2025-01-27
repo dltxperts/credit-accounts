@@ -2,6 +2,9 @@ pragma solidity ^0.8.24;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
+import { MultiSendLib } from "./libraries/MultiSendLib.sol";
+import { Call } from "../DataTypes.sol";
+
 // Gearbox
 import { IAccountFactory } from
     "@gearbox-protocol/core-v3/contracts/interfaces/base/IAccountFactory.sol";
@@ -9,12 +12,12 @@ import { NotImplementedException } from
     "@gearbox-protocol/core-v3/contracts/interfaces/IExceptions.sol";
 
 // Safe
-import { ISafe, Enum } from "./interfaces/ISafe.sol";
+import { ISafe } from "./interfaces/ISafe.sol";
 import { MultiSendCallOnly } from
     "@safe-global/safe-contracts/contracts/libraries/MultiSendCallOnly.sol";
 import { SafeProxyFactory } from
     "@safe-global/safe-contracts/contracts/proxies/SafeProxyFactory.sol";
-import { SafeCreditAccount } from "./SafeCreditAccount.sol";
+import { SafeCreditAccount } from "./CreditAccount.sol";
 
 contract SafeCreditAccountFactory is Ownable, IAccountFactory {
     SafeProxyFactory public immutable SAFE_PROXY_FACTORY;
@@ -37,7 +40,8 @@ contract SafeCreditAccountFactory is Ownable, IAccountFactory {
     ) {
         SAFE_PROXY_FACTORY = SafeProxyFactory(_safeProxyFactory);
         SAFE_SINGLETON = _safeSingleton;
-        SAFE_CREDIT_ACCOUNT_MODULE = address(new SafeCreditAccount(_gearboxCreditManager));
+        SAFE_CREDIT_ACCOUNT_MODULE =
+            address(new SafeCreditAccount(_gearboxCreditManager, _multiSendCallOnly));
         MULTI_SEND_CALL_ONLY = _multiSendCallOnly;
         transferOwnership(_owner);
     }
@@ -102,14 +106,14 @@ contract SafeCreditAccountFactory is Ownable, IAccountFactory {
         address safeCreditAccount =
             address(SAFE_PROXY_FACTORY.createProxyWithNonce(SAFE_SINGLETON, "", salt));
 
-        bytes memory enableModuleData = _encodeOperation(
-            safeCreditAccount, abi.encodeCall(ISafe.enableModule, (SAFE_CREDIT_ACCOUNT_MODULE))
+        Call[] memory calls = new Call[](2);
+        calls[0] = Call(
+            safeCreditAccount, 0, abi.encodeCall(ISafe.enableModule, (SAFE_CREDIT_ACCOUNT_MODULE))
         );
-        bytes memory setGuardData = _encodeOperation(
-            safeCreditAccount, abi.encodeCall(ISafe.setGuard, (SAFE_CREDIT_ACCOUNT_MODULE))
-        );
+        calls[1] =
+            Call(safeCreditAccount, 0, abi.encodeCall(ISafe.setGuard, (SAFE_CREDIT_ACCOUNT_MODULE)));
 
-        bytes memory multiSendData = abi.encodePacked(enableModuleData, setGuardData);
+        bytes memory multiSendData = MultiSendLib.encodeMultisendCallOnly(calls);
         bytes memory multiSendCall = abi.encodeCall(MultiSendCallOnly.multiSend, (multiSendData));
 
         ISafe(safeCreditAccount).setup(
@@ -124,19 +128,5 @@ contract SafeCreditAccountFactory is Ownable, IAccountFactory {
         );
 
         return safeCreditAccount;
-    }
-
-    /// @dev Encodes an operation for MultiSendCallOnly contract
-    function _encodeOperation(
-        address target,
-        bytes memory callData
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
-        return abi.encodePacked(
-            uint8(Enum.Operation.Call), target, uint256(0), uint256(callData.length), callData
-        );
     }
 }
