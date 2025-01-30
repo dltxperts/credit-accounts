@@ -66,6 +66,11 @@ contract SafeCreditAccountGuard is ITransactionGuard {
         }
 
         // preCollateralCheck
+        // bytes memory callData = abi.encodeCall(ICreditFacadeHooks.preExecutionCheck, ());
+        // bool success = safe.execTransactionFromModule(to, 0, callData, Enum.Operation.Call);
+        // if (!success) {
+        //     revert();
+        // }
     }
 
     function checkAfterExecution(bytes32 txHash, bool success) external override {
@@ -79,6 +84,11 @@ contract SafeCreditAccountGuard is ITransactionGuard {
         _clearTxContext();
 
         // postCollateralCheck
+        // bytes memory callData = abi.encodeCall(ICreditFacadeHooks.postExecutionCheck, ());
+        // bool success = safe.execTransactionFromModule(to, 0, callData, Enum.Operation.Call);
+        // if (!success) {
+        //     revert();
+        // }
     }
 
     function _clearTxContext() internal {

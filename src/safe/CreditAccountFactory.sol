@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -8,8 +9,21 @@ import { Call } from "../DataTypes.sol";
 // Gearbox
 import { IAccountFactory } from
     "@gearbox-protocol/core-v3/contracts/interfaces/base/IAccountFactory.sol";
-import { NotImplementedException } from
-    "@gearbox-protocol/core-v3/contracts/interfaces/IExceptions.sol";
+import { ICreditManagerV3 } from
+    "@gearbox-protocol/core-v3/contracts/interfaces/ICreditManagerV3.sol";
+import {
+    NotImplementedException,
+    CallerNotCreditManagerException,
+    MasterCreditAccountAlreadyDeployedException
+} from "@gearbox-protocol/core-v3/contracts/interfaces/IExceptions.sol";
+import { IAddressProvider } from
+    "@gearbox-protocol/core-v3/contracts/interfaces/base/IAddressProvider.sol";
+import {
+    AP_INSTANCE_MANAGER_PROXY,
+    NO_VERSION_CONTROL
+} from "@gearbox-protocol/core-v3/contracts/libraries/Constants.sol";
+
+import { ICreditFacadeHooks } from "../interfaces/ICreditFacadeHooks.sol";
 
 // Safe
 import { ISafe } from "./interfaces/ISafe.sol";
@@ -22,7 +36,7 @@ import { SafeCreditAccount } from "./CreditAccount.sol";
 contract SafeCreditAccountFactory is Ownable, IAccountFactory {
     SafeProxyFactory public immutable SAFE_PROXY_FACTORY;
     address public immutable SAFE_SINGLETON;
-    address public immutable SAFE_CREDIT_ACCOUNT_MODULE;
+    // address public immutable SAFE_CREDIT_ACCOUNT_MODULE;
     address public immutable MULTI_SEND_CALL_ONLY;
 
     /// @notice Contract type
@@ -31,23 +45,37 @@ contract SafeCreditAccountFactory is Ownable, IAccountFactory {
     /// @notice Contract version
     uint256 public constant override version = 3_20;
 
+    /// @notice Mapping credit manager => safe accoutn module
+    mapping(address => address) internal _creditManagerToSafeAccountModule;
+
     constructor(
-        address _owner,
+        address _addressProvider,
         address _safeProxyFactory,
         address _safeSingleton,
-        address _multiSendCallOnly,
-        address _gearboxCreditManager
+        address _multiSendCallOnly
     ) {
         SAFE_PROXY_FACTORY = SafeProxyFactory(_safeProxyFactory);
         SAFE_SINGLETON = _safeSingleton;
-        SAFE_CREDIT_ACCOUNT_MODULE =
-            address(new SafeCreditAccount(_gearboxCreditManager, _multiSendCallOnly));
         MULTI_SEND_CALL_ONLY = _multiSendCallOnly;
-        transferOwnership(_owner);
+        transferOwnership(
+            IAddressProvider(_addressProvider).getAddressOrRevert(
+                AP_INSTANCE_MANAGER_PROXY, NO_VERSION_CONTROL
+            )
+        );
     }
 
     function takeCreditAccount(uint256, uint256) external returns (address creditAccount) {
-        return address(0);
+        address creditAccountModule = _creditManagerToSafeAccountModule[msg.sender];
+        if (creditAccountModule == address(0)) {
+            revert CallerNotCreditManagerException();
+        }
+
+        address creditFacade = ICreditManagerV3(msg.sender).creditFacade();
+        address owner = ICreditFacadeHooks(creditFacade).getOpenCreditAccountContextOrRevert();
+
+        address[] memory owners = new address[](1);
+        owners[0] = owner;
+        creditAccount = _deploySafeCreditAccount(creditAccountModule, owners, 1);
     }
 
     function returnCreditAccount(address) external {
@@ -55,17 +83,13 @@ contract SafeCreditAccountFactory is Ownable, IAccountFactory {
     }
 
     function addCreditManager(address creditManager) external {
-        revert("Not implemented");
-    }
+        if (_creditManagerToSafeAccountModule[creditManager] != address(0)) {
+            revert MasterCreditAccountAlreadyDeployedException();
+        }
 
-    function deployCreditAccount(
-        address[] memory owners,
-        uint256 threshold
-    )
-        external
-        returns (address)
-    {
-        return _deploySafeCreditAccount(owners, threshold);
+        address creditAccountModule =
+            address(new SafeCreditAccount(creditManager, MULTI_SEND_CALL_ONLY));
+        _creditManagerToSafeAccountModule[creditManager] = creditAccountModule;
     }
 
     function predictCreditAccountAddress(bytes32 salt) external view returns (address safeProxy) {
@@ -96,6 +120,7 @@ contract SafeCreditAccountFactory is Ownable, IAccountFactory {
     }
 
     function _deploySafeCreditAccount(
+        address creditAccountModule,
         address[] memory owners,
         uint256 threshold
     )
@@ -107,11 +132,9 @@ contract SafeCreditAccountFactory is Ownable, IAccountFactory {
             address(SAFE_PROXY_FACTORY.createProxyWithNonce(SAFE_SINGLETON, "", salt));
 
         Call[] memory calls = new Call[](2);
-        calls[0] = Call(
-            safeCreditAccount, 0, abi.encodeCall(ISafe.enableModule, (SAFE_CREDIT_ACCOUNT_MODULE))
-        );
-        calls[1] =
-            Call(safeCreditAccount, 0, abi.encodeCall(ISafe.setGuard, (SAFE_CREDIT_ACCOUNT_MODULE)));
+        calls[0] =
+            Call(safeCreditAccount, 0, abi.encodeCall(ISafe.enableModule, (creditAccountModule)));
+        calls[1] = Call(safeCreditAccount, 0, abi.encodeCall(ISafe.setGuard, (creditAccountModule)));
 
         bytes memory multiSendData = MultiSendLib.encodeMultisendCallOnly(calls);
         bytes memory multiSendCall = abi.encodeCall(MultiSendCallOnly.multiSend, (multiSendData));
@@ -121,7 +144,7 @@ contract SafeCreditAccountFactory is Ownable, IAccountFactory {
             threshold,
             MULTI_SEND_CALL_ONLY,
             multiSendCall,
-            SAFE_CREDIT_ACCOUNT_MODULE,
+            creditAccountModule,
             address(0),
             0,
             payable(address(0))
