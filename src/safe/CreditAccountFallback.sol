@@ -28,7 +28,7 @@ contract SafeCreditAccountFallback is ICreditAccountV3, HandlerContext {
     bytes32 public constant override contractType = "CREDIT_ACCOUNT::SAFE";
 
     /// @notice Contract version
-    uint256 public constant override version = 3_20;
+    uint256 public constant override version = 3_10;
 
     constructor(address _creditManager) {
         creditManager = _creditManager;
