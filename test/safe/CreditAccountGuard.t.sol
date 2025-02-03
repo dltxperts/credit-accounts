@@ -28,13 +28,15 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // Test contracts
 import { SafeCreditAccountGuard } from "../../src/safe/CreditAccountGuard.sol";
+import { CreditManagerTrait } from "../../src/safe/CreditManagerTrait.sol";
 
 contract MockCreditAccountGuard is SafeCreditAccountGuard {
     constructor(
         address multisendCallOnly,
         address creditManager
     )
-        SafeCreditAccountGuard(multisendCallOnly, creditManager)
+        CreditManagerTrait(creditManager)
+        SafeCreditAccountGuard(multisendCallOnly)
     { }
 
     function getApprovals() external view returns (SafeCreditAccountGuard.Approval[] memory) {

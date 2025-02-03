@@ -14,7 +14,9 @@ import {
     AccountModificationNotAllowedException
 } from "../interfaces/ICreditAccountExceptions.sol";
 
-contract SafeCreditAccountGuard is ITransactionGuard {
+import { CreditManagerTrait } from "./CreditManagerTrait.sol";
+
+abstract contract SafeCreditAccountGuard is ITransactionGuard, CreditManagerTrait {
     struct Approval {
         address token;
         address spender;
@@ -25,15 +27,13 @@ contract SafeCreditAccountGuard is ITransactionGuard {
     }
 
     address public immutable MULTISEND_CALL_ONLY;
-    address public immutable CREDIT_FACADE;
 
     bytes4 public constant APPROVE_SELECTOR = bytes4(keccak256("approve(address,uint256)"));
 
     TxContext internal _txContext;
 
-    constructor(address multisendCallOnly, address _creditManager) {
+    constructor(address multisendCallOnly) {
         MULTISEND_CALL_ONLY = multisendCallOnly;
-        CREDIT_FACADE = ICreditManagerV3(_creditManager).creditFacade();
     }
 
     // Non-reentrant
@@ -73,7 +73,7 @@ contract SafeCreditAccountGuard is ITransactionGuard {
         // preCollateralCheck
         bytes memory callData = abi.encodeCall(ICreditFacadeHooks.preExecutionCheck, ());
         bool success =
-            safe.execTransactionFromModule(CREDIT_FACADE, 0, callData, Enum.Operation.Call);
+            safe.execTransactionFromModule(_getCreditFacade(), 0, callData, Enum.Operation.Call);
         if (!success) {
             revert("preExecutionCheck failed");
         }
@@ -94,7 +94,7 @@ contract SafeCreditAccountGuard is ITransactionGuard {
         // postCollateralCheck
         bytes memory callData = abi.encodeCall(ICreditFacadeHooks.postExecutionCheck, ());
         bool success =
-            safe.execTransactionFromModule(CREDIT_FACADE, 0, callData, Enum.Operation.Call);
+            safe.execTransactionFromModule(_getCreditFacade(), 0, callData, Enum.Operation.Call);
         if (!success) {
             revert("postExecutionCheck failed");
         }

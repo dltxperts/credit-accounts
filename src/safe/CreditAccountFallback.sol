@@ -17,12 +17,15 @@ import {
 import { ISafe, Enum } from "./interfaces/ISafe.sol";
 import { HandlerContext } from "@safe-global/safe-contracts/contracts/handler/HandlerContext.sol";
 
-contract SafeCreditAccountFallback is ICreditAccountV3, HandlerContext {
+import { CreditManagerTrait } from "./CreditManagerTrait.sol";
+
+abstract contract SafeCreditAccountFallback is
+    ICreditAccountV3,
+    HandlerContext,
+    CreditManagerTrait
+{
     /// @notice Account factory this account was deployed with
     address public immutable override factory;
-
-    /// @notice Credit manager this account is connected to
-    address public immutable override creditManager;
 
     /// @notice Contract type
     bytes32 public constant override contractType = "CREDIT_ACCOUNT::SAFE";
@@ -30,14 +33,13 @@ contract SafeCreditAccountFallback is ICreditAccountV3, HandlerContext {
     /// @notice Contract version
     uint256 public constant override version = 3_10;
 
-    constructor(address _creditManager) {
-        creditManager = _creditManager;
+    constructor() {
         factory = msg.sender;
     }
 
     /// @dev Ensures that function caller is credit manager
     modifier creditManagerOnly() {
-        _revertIfNotCreditManager();
+        _revertIfNotCreditManager(_msgSender());
         _;
     }
 
@@ -71,10 +73,7 @@ contract SafeCreditAccountFallback is ICreditAccountV3, HandlerContext {
         revert NotImplementedException();
     }
 
-    /// @dev Reverts if `msg.sender` is not credit manager
-    function _revertIfNotCreditManager() internal view {
-        if (_msgSender() != creditManager) {
-            revert CallerNotCreditManagerException();
-        }
+    function creditManager() external view override(ICreditAccountV3) returns (address) {
+        return _getCreditManager();
     }
 }
