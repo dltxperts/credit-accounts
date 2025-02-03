@@ -7,6 +7,7 @@ import { MockAddressProvider } from "../mocks/MockAddressProvider.sol";
 import { SafeCreditAccountFactory } from "../../src/safe/CreditAccountFactory.sol";
 
 import { TestAccount, TestAccountLib } from "../libraries/TestAccountLib.t.sol";
+import { MockCreditManager } from "../mocks/MockCreditManager.sol";
 
 // Gearbox Contracts
 import {
@@ -88,8 +89,9 @@ contract BaseSafeTest is BaseTest {
         multiSendCallOnly = new MultiSendCallOnly();
         mockAddressProvider = new MockAddressProvider();
 
-        gearboxCreditManager = makeAddr("gearbox_credit_manager");
-        instanceManagerProxy = makeAddr("instance_manager_proxy");
+        gearboxCreditManager = address(new MockCreditManager());
+        vm.label(gearboxCreditManager, "gearboxCreditManager");
+        instanceManagerProxy = makeAddr("instanceManagerProxy");
         mockAddressProvider.setAddress(AP_INSTANCE_MANAGER_PROXY, instanceManagerProxy);
 
         safeCreditAccountFactory = new SafeCreditAccountFactoryHarness(

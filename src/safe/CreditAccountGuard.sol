@@ -5,6 +5,9 @@ import { ITransactionGuard, IERC165 } from "./interfaces/ITransactionGuard.sol";
 import { Call } from "../DataTypes.sol";
 import { MultiSendLib } from "./libraries/MultiSendLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ICreditFacadeHooks } from "../interfaces/ICreditFacadeHooks.sol";
+import { ICreditManagerV3 } from
+    "@gearbox-protocol/core-v3/contracts/interfaces/ICreditManagerV3.sol";
 
 import {
     DelegateCallNotAllowedException,
@@ -22,13 +25,15 @@ contract SafeCreditAccountGuard is ITransactionGuard {
     }
 
     address public immutable MULTISEND_CALL_ONLY;
+    address public immutable CREDIT_FACADE;
 
     bytes4 public constant APPROVE_SELECTOR = bytes4(keccak256("approve(address,uint256)"));
 
     TxContext internal _txContext;
 
-    constructor(address multisendCallOnly) {
+    constructor(address multisendCallOnly, address _creditManager) {
         MULTISEND_CALL_ONLY = multisendCallOnly;
+        CREDIT_FACADE = ICreditManagerV3(_creditManager).creditFacade();
     }
 
     // Non-reentrant
@@ -66,14 +71,17 @@ contract SafeCreditAccountGuard is ITransactionGuard {
         }
 
         // preCollateralCheck
-        // bytes memory callData = abi.encodeCall(ICreditFacadeHooks.preExecutionCheck, ());
-        // bool success = safe.execTransactionFromModule(to, 0, callData, Enum.Operation.Call);
-        // if (!success) {
-        //     revert();
-        // }
+        bytes memory callData = abi.encodeCall(ICreditFacadeHooks.preExecutionCheck, ());
+        bool success =
+            safe.execTransactionFromModule(CREDIT_FACADE, 0, callData, Enum.Operation.Call);
+        if (!success) {
+            revert("preExecutionCheck failed");
+        }
     }
 
     function checkAfterExecution(bytes32 txHash, bool success) external override {
+        ISafe safe = ISafe(msg.sender);
+
         // reset approvals
         for (uint256 i = 0; i < _txContext.approvals.length; i++) {
             Approval memory approval = _txContext.approvals[i];
@@ -84,11 +92,12 @@ contract SafeCreditAccountGuard is ITransactionGuard {
         _clearTxContext();
 
         // postCollateralCheck
-        // bytes memory callData = abi.encodeCall(ICreditFacadeHooks.postExecutionCheck, ());
-        // bool success = safe.execTransactionFromModule(to, 0, callData, Enum.Operation.Call);
-        // if (!success) {
-        //     revert();
-        // }
+        bytes memory callData = abi.encodeCall(ICreditFacadeHooks.postExecutionCheck, ());
+        bool success =
+            safe.execTransactionFromModule(CREDIT_FACADE, 0, callData, Enum.Operation.Call);
+        if (!success) {
+            revert("postExecutionCheck failed");
+        }
     }
 
     function _clearTxContext() internal {

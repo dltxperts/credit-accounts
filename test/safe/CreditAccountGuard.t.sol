@@ -30,10 +30,31 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeCreditAccountGuard } from "../../src/safe/CreditAccountGuard.sol";
 
 contract MockCreditAccountGuard is SafeCreditAccountGuard {
-    constructor(address multisendCallOnly) SafeCreditAccountGuard(multisendCallOnly) { }
+    constructor(
+        address multisendCallOnly,
+        address creditManager
+    )
+        SafeCreditAccountGuard(multisendCallOnly, creditManager)
+    { }
 
     function getApprovals() external view returns (SafeCreditAccountGuard.Approval[] memory) {
         return _txContext.approvals;
+    }
+}
+
+contract MockSafe {
+    function execTransactionFromModule(
+        address to,
+        uint256 value,
+        bytes memory data,
+        Enum.Operation operation
+    )
+        external
+        returns (bool)
+    {
+        (bool success,) = to.call(data);
+
+        return success;
     }
 }
 
@@ -44,9 +65,9 @@ contract SafeCreditAccountGuardTest is BaseSafeTest {
                             VARIABLES
     //////////////////////////////////////////////////////////////*/
 
-    Safe public creditAccount;
     Guard public guard;
     MockERC20 public token;
+    address public creditAccount;
 
     /*//////////////////////////////////////////////////////////////
                             SETUP
@@ -55,8 +76,11 @@ contract SafeCreditAccountGuardTest is BaseSafeTest {
     function setUp() public override {
         super.setUp();
 
-        creditAccount = _makeSafe_1_1_Instance(alice.addr);
-        guard = Guard(address(new MockCreditAccountGuard(address(multiSendCallOnly))));
+        // creditAccount = _makeSafe_1_1_Instance(alice.addr);
+        creditAccount = address(new MockSafe());
+        guard = Guard(
+            address(new MockCreditAccountGuard(address(multiSendCallOnly), gearboxCreditManager))
+        );
         token = new MockERC20();
     }
 
@@ -78,9 +102,10 @@ contract SafeCreditAccountGuardTest is BaseSafeTest {
 
         address anotherMultiSend = address(new MultiSendCallOnly());
 
-        vm.prank(alice.addr);
+        vm.startPrank(address(creditAccount));
         vm.expectRevert(DelegateCallNotAllowedException.selector);
         _checkTransaction(anotherMultiSend, "", Enum.Operation.DelegateCall);
+        vm.stopPrank();
     }
 
     modifier whenApproving() {
@@ -92,7 +117,9 @@ contract SafeCreditAccountGuardTest is BaseSafeTest {
 
         address spender = makeAddr("spender");
         bytes memory data = abi.encodeCall(IERC20.approve, (spender, 100));
+        vm.startPrank(address(creditAccount));
         _checkTransaction(address(token), data, Enum.Operation.Call);
+        vm.stopPrank();
 
         SafeCreditAccountGuard.Approval[] memory approvals =
             MockCreditAccountGuard(address(guard)).getApprovals();
@@ -120,7 +147,9 @@ contract SafeCreditAccountGuardTest is BaseSafeTest {
         });
 
         bytes memory data = MultiSendLib.encodeMultisendCallOnly(calls);
+        vm.startPrank(address(creditAccount));
         _checkTransaction(address(multiSendCallOnly), data, Enum.Operation.DelegateCall);
+        vm.stopPrank();
 
         SafeCreditAccountGuard.Approval[] memory approvals =
             MockCreditAccountGuard(address(guard)).getApprovals();

@@ -9,6 +9,6 @@ contract SafeCreditAccount is SafeCreditAccountFallback, SafeCreditAccountGuard 
         address _multiSendCallOnly
     )
         SafeCreditAccountFallback(_creditManager)
-        SafeCreditAccountGuard(_multiSendCallOnly)
+        SafeCreditAccountGuard(_multiSendCallOnly, _creditManager)
     { }
 }
