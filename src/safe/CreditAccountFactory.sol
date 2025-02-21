@@ -152,4 +152,8 @@ contract SafeCreditAccountFactory is Ownable, IAccountFactory {
 
         return safeCreditAccount;
     }
+
+    function serialize() external view returns (bytes memory) {
+        return "";
+    }
 }
