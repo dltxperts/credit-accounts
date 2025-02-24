@@ -43,7 +43,7 @@ contract SafeCreditAccountFactory is Ownable, IAccountFactory {
     bytes32 public constant override contractType = "ACCOUNT_FACTORY::SAFE";
 
     /// @notice Contract version
-    uint256 public constant override version = 3_10;
+    uint256 public constant override version = 3_20;
 
     /// @notice Mapping credit manager => safe accoutn module
     mapping(address => address) internal _creditManagerToSafeAccountModule;

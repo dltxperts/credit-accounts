@@ -31,7 +31,7 @@ abstract contract SafeCreditAccountFallback is
     bytes32 public constant override contractType = "CREDIT_ACCOUNT::SAFE";
 
     /// @notice Contract version
-    uint256 public constant override version = 3_10;
+    uint256 public constant override version = 3_20;
 
     constructor() {
         factory = msg.sender;
